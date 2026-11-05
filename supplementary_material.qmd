@@ -29,7 +29,6 @@ dir_qmd <- "~/Desktop/qmd_files"
 
 # Part A. Extended Methods
 
-> Items in [brackets] are still pending: the justification of k in the clustering (2.9) and the repository DOI (2.10.3).
 
 ## 2.1 Study area
 
@@ -253,7 +252,16 @@ External validation with the 2025 cases required a design check. Because the 202
 
 ## 2.9 Integrated risk map
 
-Predicted probabilities from the epidemiological (dengue) and entomological (vector) models were used as inputs to a cluster analysis that classified the study area into five epidemiological risk scenarios: very low, low, moderate, high and very high using k-means on the standardised probabilities; k = 5 was fixed a priori to obtain five ordinal levels of risk that can be communicated operationally [justify the choice of k, or add a sensitivity analysis with other values of k]. Clusters were ordered by their mean predicted probabilities to assign the risk labels, and the result is shown in Figure 5D of the main text.
+The predicted probabilities from the epidemiological (dengue) and entomological (vector) models were used as inputs to a cluster analysis (k-means on the standardised probabilities) that classified the study area into five ordinal epidemiological risk scenarios: very low, low, moderate, high and very high. Clusters were ordered by the mean of the two probabilities (of transmission and of *Ae. aegypti* presence) of their cells, and assigned in that order to the risk levels (Figure 5D of the main text). In addition, a bivariate map of both probabilities was produced by classifying each into quintiles (5 × 5 grid) with the `biscale` package, and the Pearson correlation between them was computed.
+
+The number of clusters was fixed a priori at k = 5 to obtain five ordinal risk levels that can be communicated and used operationally, and was not chosen by optimising a fit criterion. This is consistent with public health risk assessment manuals, which rate likelihood and consequences on five-category ordinal scales and classify risk into ordered categories from low to very high (World Health Organization, 2012; Secretaría de Salud, 2025). Because the probability of vector presence is highly skewed, the clusters should be read as relative risk scenarios and not as absolute thresholds.
+
+To estimate the population in each risk level, the population of each locality in the 2020 Population and Housing Census (INEGI, ITER by locality) was distributed among the ~500 m cells within its polygon, weighted by the population layer used as a predictor (localities without a polygon were assigned by their coordinates), so that the total of each locality matches the Census.
+
+**References**
+
+- World Health Organization. Rapid Risk Assessment of Acute Public Health Events. WHO/HSE/GAR/ARO/2012.1. Geneva: WHO; 2012.
+- Secretaría de Salud, Dirección General de Epidemiología. Manual de procedimientos de operación estandarizado de evaluación de riesgos para eventos agudos en salud pública. Ciudad de México: Secretaría de Salud; marzo de 2025.
 
 ## 2.10 Reproducibility
 
@@ -267,7 +275,7 @@ Models were fitted with `tidymodels` 1.4.1 (`tune` 2.0.1, `parsnip` 1.4.1, `reci
 
 ### 2.10.3 Repository
 
-The *Ae. aegypti* ovitrap database for the ZMCM (2017–2024, with its training and test partitions, and the 2025 external validation data), the study-area polygon, the three consensus rasters (probability of *Ae. aegypti* presence, probability of confirmed imported dengue cases and epidemiological risk) and the code of the machine-learning workflow (Quarto vignettes) are available in the R package `dengueriskcdmx` (Zenodo [DOI pending], <https://github.com/fdzul/dengueriskcdmx>, <https://fdzul.github.io/dengueriskcdmx/>). The data on confirmed dengue cases are not distributed. An interactive dashboard (<https://eclectic-alfajores-088839.netlify.app/#escenarios-epidemiológicos>) displays the probability maps and the dengue risk map. **[PENDING: make the repository public (requires CENAPRECE's authorization to publish the ovitrap coordinates), create the Zenodo DOI, and update the URLs if they change.]**
+The *Ae. aegypti* ovitrap database for the ZMCM (2017–2024, with its training and test partitions, and the 2025 external validation data), the study-area polygon, the three consensus rasters (probability of *Ae. aegypti* presence, probability of confirmed imported dengue cases and epidemiological risk) and the code of the machine-learning workflow (Quarto vignettes) are available in the R package `dengueriskcdmx` (Zenodo, <https://github.com/fdzul/dengueriskcdmx>, <https://fdzul.github.io/dengueriskcdmx/>). The data on confirmed dengue cases are not distributed. An interactive dashboard (<https://eclectic-alfajores-088839.netlify.app/#escenarios-epidemiológicos>) displays the probability maps and the dengue risk map.
 
 # Part B. Results of the *Ae. aegypti* model (preliminary: four buffers; Bayesian optimisation and grid search)
 
@@ -568,9 +576,68 @@ The GAM could not be cross-validated (no out-of-fold predictions, hence no cross
 - *Supporting summaries.* TOPSIS (B.2.1) and the Taylor diagrams are consistent with the choice of random forest, LightGBM and XGBoost, which formed the group of highest mutual agreement; they are descriptive and do not distinguish among the three.
 
 
+```{r}
+#| label: setup-mapas
+#| include: false
+aoi  <- dengueriskcdmx::aoi
+cdmx <- rgeomex::AGEM_inegi19_mx |>
+  dplyr::filter(CVE_ENT == "09") |>
+  dplyr::select(-NOMGEO)
+
+# capas por algoritmo + consenso (media de las tres)
+capas_algoritmos <- function(f_tif) {
+  r <- terra::rast(f_tif)
+  names(r) <- c("Random forest", "LightGBM", "XGBoost")
+  c(r, terra::mean(r, na.rm = TRUE) |> stats::setNames("Consensus"))
+}
+
+# mapa interactivo de una capa (mismo codigo que las vinetas de dengueriskcdmx)
+mapa_gl <- function(capa) {
+  mapgl::maplibre_view(capa, palette = viridis::turbo) |>
+    mapgl::add_continuous_legend(legend_title = "Probability",
+                                 position = "bottom-left",
+                                 values = c(0, 0.25, 0.50, 0.75, 1),
+                                 colors = viridis::turbo(n = 10)) |>
+    mapgl::add_source("aoi", aoi) |>
+    mapgl::add_layer(id = "aoi_outline", source = "aoi", type = "line",
+                     paint = list("line-color" = "blue", "line-width" = 1, "line-opacity" = 0.8)) |>
+    mapgl::add_source("cdmx", cdmx) |>
+    mapgl::add_layer(id = "cdmx_outline", source = "cdmx", type = "line",
+                     paint = list("line-color" = "white", "line-width" = 0.5, "line-opacity" = 0.8)) |>
+    mapgl::add_navigation_control() |>
+    mapgl::add_scale_control()
+}
+# cuadricula 2 x 2 con titulo y alto fijo (evita el layout de Quarto)
+mapa_grid <- function(capas) {
+  celdas <- lapply(seq_len(terra::nlyr(capas)), function(i) {
+    w <- mapa_gl(capas[[i]]); w$width <- "100%"; w$height <- "340px"
+    htmltools::div(htmltools::tags$div(names(capas)[i], style = "font-weight:bold; margin-bottom:3px;"), w)
+  })
+  htmltools::div(style = "display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; margin:1em 0;", celdas)
+}
+rango_cor <- function(f_tif) {
+  m <- terra::layerCor(terra::rast(f_tif), "pearson", na.rm = TRUE)$correlation
+  v <- m[upper.tri(m)]
+  sprintf("%.2f to %.2f", min(v), max(v))
+}
+f_aedes3  <- file.path(dir_qmd, "qmd_bayes_v2/aedes_3modelos_scv5.tif")
+```
+
+## B.7 Predictive maps of the retained algorithms and of the consensus
+
+The probability of *Ae. aegypti* presence in the main text is the consensus, defined as the mean of the probabilities predicted by the three retained algorithms (random forest, LightGBM and XGBoost; Section 2.9). Figure S17 shows the map of each algorithm and the consensus in the primary scenario (Bayesian optimisation, spatial-block cross-validation, no environmental filter, no circular predictors, 2 km buffer). The Pearson correlation between the maps of the three algorithms ranged from `r rango_cor(f_aedes3)` (cells of about 500 m).
+
+```{r}
+#| label: sfig-mapas-aedes
+#| eval: !expr knitr::is_html_output()
+mapa_grid(capas_algoritmos(f_aedes3))
+```
+
+**Figure S17.** Predicted probability of *Ae. aegypti* presence in the ZMCM by algorithm and consensus (mean of the three), in the primary scenario. Blue line: study area; white lines: boroughs of Mexico City. Interactive maps (HTML version; the basemap requires an internet connection).
+
 # Part C. Results of the imported-cases (dengue) model
 
-> **[CHECK: the numbers in the text come from the Methods and the response to the editor; compare them with the tables and figures generated below.]** The tables and figures of this part are produced by the scripts of the imported-cases model (`metricas_todos_casos.R`, `metricas_externa_filtrada.R`, `partial_roc_loop_casos.R`, `taylor_externo_casos.R`) in the primary scenario (Bayesian optimisation, no environmental filter, no circular predictors, 2 km buffer). Two versions of the external validation with the 2025 cases are shown: with all the 2025 pseudo-absences, and with the external pseudo-absences restricted to those at least 2 km from any 2023–2024 presence (the rule applied in training; Section 2.8.3).
+Results are shown for the primary scenario (Bayesian optimisation, no environmental filter, no circular predictors, 2 km buffer). Two versions of the external validation with the 2025 cases are presented: with all the 2025 pseudo-absences, and with the external pseudo-absences restricted to those at least 2 km from any 2023–2024 presence (the rule applied in training; Section 2.8.3).
 
 ```{r}
 #| label: setup-casos
@@ -650,13 +717,13 @@ knitr::kable(tabla_c, digits = 2,
 
 ### C.2.1 Multi-criteria ranking (TOPSIS)
 
-With all the 2025 pseudo-absences, TOPSIS with equal weights ranked XGBoost first (closeness to the ideal solution 0.96), with random forest and LightGBM fifth and sixth (0.53 and 0.50) and small differences among them (Figure S17). When the external pseudo-absences were restricted to those at least 2 km from any 2023–2024 presence (Figure S18), the ranking favoured the models with the smallest gap between the cross-validated and the external TSS (logistic regression, elastic-net logistic regression and GAM), although the tree-based models had the highest external TSS (0.77–0.83 versus 0.71–0.72) and AUC (0.96 versus 0.92); for this reason TOPSIS was not used to choose among algorithms.
+With all the 2025 pseudo-absences, TOPSIS with equal weights ranked XGBoost first (closeness to the ideal solution 0.96), with random forest and LightGBM fifth and sixth (0.53 and 0.50) and small differences among them (Figure S18). When the external pseudo-absences were restricted to those at least 2 km from any 2023–2024 presence (Figure S19), the ranking favoured the models with the smallest gap between the cross-validated and the external TSS (logistic regression, elastic-net logistic regression and GAM), although the tree-based models had the highest external TSS (0.77–0.83 versus 0.71–0.72) and AUC (0.96 versus 0.92); for this reason TOPSIS was not used to choose among algorithms.
 
 ```{r}
 #| label: sfig-topsis-casos-o
 #| fig-width: 7
 #| fig-height: 5
-#| fig-cap: "**Figure S17.** Multi-criteria ranking (TOPSIS, equal weights) of the algorithms of the imported-cases model in the primary scenario, with all the 2025 pseudo-absences in the external validation. Bars sorted by performance score (closeness to the ideal solution, 0–1)."
+#| fig-cap: "**Figure S18.** Multi-criteria ranking (TOPSIS, equal weights) of the algorithms of the imported-cases model in the primary scenario, with all the 2025 pseudo-absences in the external validation. Bars sorted by performance score (closeness to the ideal solution, 0–1)."
 g_topsis(tp_c_o)
 ```
 
@@ -664,7 +731,7 @@ g_topsis(tp_c_o)
 #| label: sfig-topsis-casos-f
 #| fig-width: 7
 #| fig-height: 5
-#| fig-cap: "**Figure S18.** As Figure S17, with the external pseudo-absences restricted to those at least 2 km from any 2023–2024 presence."
+#| fig-cap: "**Figure S19.** As Figure S18, with the external pseudo-absences restricted to those at least 2 km from any 2023–2024 presence."
 g_topsis(tp_c_f)
 ```
 
@@ -686,13 +753,13 @@ knitr::kable(dplyr::transmute(tp_c_f$tabla, Algorithm = algoritmo, `External TSS
 
 ### C.2.2 Taylor diagrams
 
-Against the observed 2025 class with all the pseudo-absences, no algorithm approached the reference (correlations of 0.1–0.3), consistent with an external AUC of 0.74–0.75 (Figure S19). Against the consensus of the retained models (Figures S21 and S22) and against the observed class with the filtered pseudo-absences (Figure S20), XGBoost and LightGBM lie together among the algorithms closest to the reference (correlation of about 0.85–0.95); random forest has a standard deviation smaller than that of the reference and lies farther away, and MARS, naive Bayes and the decision tree are among the most distant. The consensus reference measures cell-by-cell agreement among the prediction maps, not accuracy, and favours tree-based models because it is built from them.
+Against the observed 2025 class with all the pseudo-absences, no algorithm approached the reference (correlations of 0.1–0.3), consistent with an external AUC of 0.74–0.75 (Figure S20). Against the consensus of the retained models (Figures S22 and S23) and against the observed class with the filtered pseudo-absences (Figure S21), XGBoost and LightGBM lie together among the algorithms closest to the reference (correlation of about 0.85–0.95); random forest has a standard deviation smaller than that of the reference and lies farther away, and MARS, naive Bayes and the decision tree are among the most distant. The consensus reference measures cell-by-cell agreement among the prediction maps, not accuracy, and favours tree-based models because it is built from them.
 
 ```{r}
 #| label: sfig-taylor-casos-obs-o
 #| fig-width: 6.5
 #| fig-height: 6
-#| fig-cap: "**Figure S19.** Taylor diagram of the algorithms of the imported-cases model against the observed 2025 class (0/1), with all the 2025 pseudo-absences (primary scenario, Bayesian optimisation, stratified cross-validation, without case weights). Angle: correlation; radius: standard deviation normalised by the observed one; dashed lines: centred RMS difference; black diamond: reference. Closer to the diamond = better."
+#| fig-cap: "**Figure S20.** Taylor diagram of the algorithms of the imported-cases model against the observed 2025 class (0/1), with all the 2025 pseudo-absences (primary scenario, Bayesian optimisation, stratified cross-validation, without case weights). Angle: correlation; radius: standard deviation normalised by the observed one; dashed lines: centred RMS difference; black diamond: reference. Closer to the diamond = better."
 base_c_o <- pred_c |> dplyr::filter(version == "original", cv == "cv5", !stringr::str_detect(modelo, "wdb"), !is.na(pred))
 g_taylor(taylor_stats(base_c_o))
 ```
@@ -701,7 +768,7 @@ g_taylor(taylor_stats(base_c_o))
 #| label: sfig-taylor-casos-obs-f
 #| fig-width: 6.5
 #| fig-height: 6
-#| fig-cap: "**Figure S20.** As Figure S19, with the external pseudo-absences restricted to those at least 2 km from any 2023–2024 presence."
+#| fig-cap: "**Figure S21.** As Figure S20, with the external pseudo-absences restricted to those at least 2 km from any 2023–2024 presence."
 base_c_f <- pred_c |> dplyr::filter(version == "filtrada", cv == "cv5", !stringr::str_detect(modelo, "wdb"), !is.na(pred))
 g_taylor(taylor_stats(base_c_f))
 ```
@@ -710,7 +777,7 @@ g_taylor(taylor_stats(base_c_f))
 #| label: sfig-taylor-casos-cons-o
 #| fig-width: 6.5
 #| fig-height: 6
-#| fig-cap: "**Figure S21.** Taylor diagram of the algorithms of the imported-cases model with a continuous reference: the consensus of the retained models (mean of random forest, LightGBM and XGBoost), with all the 2025 pseudo-absences. It measures cell-by-cell agreement among maps, not accuracy against observations."
+#| fig-cap: "**Figure S22.** Taylor diagram of the algorithms of the imported-cases model with a continuous reference: the consensus of the retained models (mean of random forest, LightGBM and XGBoost), with all the 2025 pseudo-absences. It measures cell-by-cell agreement among maps, not accuracy against observations."
 g_taylor(taylor_stats(taylor_ref_consenso(dplyr::select(base_c_o, modelo, id, pred),
                                           ref_models = c("Random Forest", "LightGBM", "XGBoost"))))
 ```
@@ -719,7 +786,7 @@ g_taylor(taylor_stats(taylor_ref_consenso(dplyr::select(base_c_o, modelo, id, pr
 #| label: sfig-taylor-casos-cons-f
 #| fig-width: 6.5
 #| fig-height: 6
-#| fig-cap: "**Figure S22.** As Figure S21, with the external pseudo-absences restricted to those at least 2 km from any 2023–2024 presence."
+#| fig-cap: "**Figure S23.** As Figure S22, with the external pseudo-absences restricted to those at least 2 km from any 2023–2024 presence."
 g_taylor(taylor_stats(taylor_ref_consenso(dplyr::select(base_c_f, modelo, id, pred),
                                           ref_models = c("Random Forest", "LightGBM", "XGBoost"))))
 ```
@@ -728,9 +795,87 @@ g_taylor(taylor_stats(taylor_ref_consenso(dplyr::select(base_c_f, modelo, id, pr
 
 (i) With all the 2025 pseudo-absences, 72% of them lay within 2 km of a 2023–2024 presence, a distance that is excluded by construction in the training data, so that validation was harder than the training task; the filtered validation applies the training rule and is a sensitivity analysis of the validation design, not a criterion for selecting models. (ii) The 2025 evaluation is temporal but not spatially independent of the training data. (iii) Precipitation (MexHiResClimDB, available only up to 2020) does not match the years of the cases. (iv) TOPSIS and the Taylor diagrams are descriptive summaries and were not used to rank the retained algorithms against each other.
 
+## C.4 Predictive maps of the retained algorithms and of the consensus
+
+```{r}
+#| label: ruta-mapas-dengue
+#| include: false
+f_dengue3 <- file.path(dir_casos, "dengue_3modelos_2023_2024_scv5.tif")
+```
+
+Figure S24 shows the map of the probability of imported dengue cases predicted by each of the three retained algorithms and the consensus (mean of the three) in the primary scenario. The Pearson correlation between the maps of the three algorithms ranged from `r rango_cor(f_dengue3)`.
+
+```{r}
+#| label: sfig-mapas-dengue
+#| eval: !expr knitr::is_html_output()
+mapa_grid(capas_algoritmos(f_dengue3))
+```
+
+**Figure S24.** Predicted probability of confirmed imported dengue cases in the ZMCM by algorithm and consensus (mean of the three), in the primary scenario. Blue line: study area; white lines: boroughs of Mexico City. Interactive maps (HTML version; the basemap requires an internet connection).
+
 # Part D. Results of the risk map
 
 All values in this part were computed on the cells of the ~500 m analysis grid. Risk levels are the five clusters of the k-means analysis (k = 5) of the probability of imported dengue cases and the probability of *Aedes aegypti* presence (Figure 5D of the main text). Both probabilities are the consensus (mean) of the random forest, LightGBM and XGBoost models.
+
+```{r}
+#| label: sfig-mapa-riesgo
+#| eval: !expr knitr::is_html_output()
+library(terra); library(tidyterra)
+risk <- dengueriskcdmx::ae_raster(layer = "risk") |> dplyr::select(risk)
+
+# area and population by risk level (Census 2020, INEGI ITER)
+tab <- data.frame(
+  nivel    = c("Very High", "High", "Mid", "Low", "Very Low"),
+  color    = c("#BD0026", "#FEB24C", "#FED976", "#6BAE6B", "#2C7A3E"),
+  km2      = c(170.5, 676.9, 210.1, 161.6, 873.8),
+  pct_area = c(8.1, 32.3, 10.0, 7.7, 41.8),
+  hab_M    = c(2.69, 9.66, 2.06, 1.26, 4.09),
+  pct_pob  = c(13.6, 48.9, 10.4, 6.4, 20.7))
+filas <- paste0(
+  "<tr><td style='padding:2px 6px;'><span style='display:inline-block;width:10px;height:10px;background:",
+  tab$color, ";margin-right:5px;'></span>", tab$nivel, "</td>",
+  "<td style='text-align:right;padding:2px 6px;'>", formatC(tab$km2, format = "f", digits = 1, big.mark = ","), "</td>",
+  "<td style='text-align:right;padding:2px 6px;'>", tab$pct_area, "</td>",
+  "<td style='text-align:right;padding:2px 6px;'>", formatC(tab$hab_M, format = "f", digits = 2), "</td>",
+  "<td style='text-align:right;padding:2px 6px;'>", tab$pct_pob, "</td></tr>", collapse = "")
+tabla_html <- paste0(
+  "<details open style='background:rgba(255,255,255,0.92);padding:5px 7px;border-radius:6px;",
+  "font-family:sans-serif;font-size:10px;box-shadow:0 1px 4px rgba(0,0,0,.3);'>",
+  "<summary style='cursor:pointer;font-weight:bold;'>Risk: area and population</summary>",
+  "<table style='border-collapse:collapse;margin-top:4px;'>",
+  "<tr style='border-bottom:1px solid #999;'><th style='padding:1px 4px;text-align:left;'>Level</th>",
+  "<th style='padding:1px 4px;'>km&sup2;</th><th style='padding:1px 4px;'>% area</th>",
+  "<th style='padding:1px 4px;'>Pop. (M)</th><th style='padding:1px 4px;'>% pop.</th></tr>",
+  filas,
+  "<tr style='border-top:1px solid #999;'><td style='padding:1px 4px;'><b>Total</b></td>",
+  "<td style='text-align:right;padding:1px 4px;'>2,092.9</td><td style='text-align:right;padding:1px 4px;'>100</td>",
+  "<td style='text-align:right;padding:1px 4px;'>19.76</td><td style='text-align:right;padding:1px 4px;'>100</td></tr>",
+  "</table><div style='font-size:8px;color:#555;margin-top:3px;'>Population: 2020 Census (INEGI, ITER)</div></details>")
+
+colores_hex <- c("#BD0026", "#FEB24C", "#FED976", "#6BAE6B", "#2C7A3E")
+niveles     <- c("Very High", "High", "Mid", "Low", "Very Low")
+levels(risk) <- NULL
+risk <- terra::mask(risk, mask = aoi)
+
+mapa_riesgo <- mapgl::maplibre_view(risk, palette = grDevices::colorRampPalette(colores_hex)) |>
+  mapgl::add_categorical_legend(legend_title = "Risk", values = niveles, colors = colores_hex,
+                                position = "bottom-left", draggable = TRUE) |>
+  mapgl::add_source("aoi", aoi) |>
+  mapgl::add_layer(id = "aoi_outline", source = "aoi", type = "line",
+                   paint = list("line-color" = "blue", "line-width" = 1, "line-opacity" = 0.8)) |>
+  mapgl::add_source("cdmx", cdmx) |>
+  mapgl::add_layer(id = "cdmx_outline", source = "cdmx", type = "line",
+                   paint = list("line-color" = "white", "line-width" = 0.5, "line-opacity" = 0.8)) |>
+  mapgl::add_fullscreen_control(position = "top-left") |>
+  mapgl::add_navigation_control() |>
+  mapgl::add_globe_control() |>
+  mapgl::add_scale_control() |>
+  mapgl::add_control(html = tabla_html, position = "top-right")
+mapa_riesgo$width <- "100%"; mapa_riesgo$height <- "560px"
+mapa_riesgo
+```
+
+**Figure S25.** Epidemiological risk map of dengue transmission in the ZMCM (five levels, from very low to very high). The table summarises the area and the population (2020 Census) of each level. Blue line: study area; white lines: boroughs of Mexico City. Interactive map (HTML version; the basemap requires an internet connection).
 
 ## D.1 Spatial association between the probabilities and the risk levels
 
@@ -773,7 +918,7 @@ All values in this part were computed on the cells of the ~500 m analysis grid. 
 
 *Note.* Accessibility is clearly higher in the Very High and High levels; marginalization is slightly lower (small difference); Social Lag shows no difference between levels.
 
-: **Table S17.** Spearman's correlation (ρ) between the indices and the probabilities within each risk level (cells of ~500 m).
+: **Table S18.** Spearman's correlation (ρ) between the indices and the probabilities within each risk level (cells of ~500 m).
 
 | Risk level (cells) | Index | Imported cases | *Ae. aegypti* |
 |:--|:--|--:|--:|
@@ -802,7 +947,7 @@ All values in this part were computed on the cells of the ~500 m analysis grid. 
 
 ## D.2 Imported cases and city blocks by risk level
 
-: **Table S18.** Percentage of confirmed imported dengue cases located in each risk level, by year. Each column sums to 100.
+: **Table S19.** Percentage of confirmed imported dengue cases located in each risk level, by year. Each column sums to 100.
 
 | Risk level (% of the area) | 2023 | 2024 | 2025 |
 |:--|--:|--:|--:|
@@ -816,7 +961,7 @@ All values in this part were computed on the cells of the ~500 m analysis grid. 
 
 *Note.* Cases from 2023–2024 were used to fit the models; cases from 2025 are independent of the fitting. The numbers of cases within the study area were 236, 503 and 60; six cases (1, 3 and 2 in 2023, 2024 and 2025) located at the border of the study area, 300 to 413 m from the nearest cell with a value, have no value in the risk map and were excluded from this table.
 
-: **Table S19.** City blocks (2020 Census) by risk level. Total: 159,590 blocks within the study area.
+: **Table S20.** City blocks (2020 Census) by risk level. Total: 159,590 blocks within the study area.
 
 | Risk level | Blocks | % |
 |:--|--:|--:|

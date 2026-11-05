@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this supplementary material, please cite it as below."
+title: "Supplementary material: Risk Map of Dengue Transmission in the Metropolitan Area of Mexico City"
+type: dataset
+version: 1.0.0
+date-released: "2026-11-04"
+authors:
+  - family-names: "Dzul Manzanilla"
+    given-names: "Felipe Antonio"
+    orcid: "https://orcid.org/0000-0002-2085-9141"
+    affiliation: "Instituto Nacional de Salud Pública, Mexico"
+repository-code: "https://github.com/fdzul/supplementary_material_dengueriskcdmx"
+license: CC-BY-4.0
+keywords:
+  - dengue
+  - Aedes aegypti
+  - risk map
+  - species distribution modelling
+  - machine learning
+  - Mexico City
+abstract: "Extended methods and supplementary results (Ae. aegypti ovitrap model, imported dengue cases model, and integrated risk map) for the manuscript 'Risk Map of Dengue Transmission in the Metropolitan Area of Mexico City'. Rendered Quarto document (HTML). Confirmed dengue case data are not distributed."

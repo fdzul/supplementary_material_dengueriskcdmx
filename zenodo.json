@@ -1,0 +1,23 @@
+{
+  "title": "Supplementary material: Risk Map of Dengue Transmission in the Metropolitan Area of Mexico City",
+  "upload_type": "publication",
+  "publication_type": "other",
+  "description": "<p>Extended methods and supplementary results (<em>Aedes aegypti</em> ovitrap model, imported dengue cases model, and integrated risk map) for the manuscript <em>Risk Map of Dengue Transmission in the Metropolitan Area of Mexico City</em>. The document is a rendered Quarto file (HTML) with its source (.qmd). Confirmed dengue case data are not distributed.</p>",
+  "creators": [
+    {
+      "name": "Dzul Manzanilla, Felipe Antonio",
+      "affiliation": "Instituto Nacional de Salud Pública, Mexico",
+      "orcid": "0000-0002-2085-9141"
+    }
+  ],
+  "license": "cc-by-4.0",
+  "keywords": ["dengue", "Aedes aegypti", "risk map", "species distribution modelling", "machine learning", "Mexico City"],
+  "language": "eng",
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/fdzul/dengueriskcdmx",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ]
+}
