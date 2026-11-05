@@ -166,7 +166,7 @@ g_folds(cv_esp, train)
 
 ## 2.6 Algorithms and hyperparameter tuning
 
-Twelve algorithms were fitted: MaxNet, logistic regression, elastic-net logistic regression, GAM (`mgcv`, `s(x, k = 3)`), MARS, naive Bayes, k-nearest neighbours, decision tree, random forest, LightGBM, XGBoost, and a single-layer neural network. Hyperparameters were tuned with the same recipes by grid search (`tune_grid`) and by Bayesian optimisation (`tune_bayes`; 15–35 initial points and 25–35 iterations depending on the algorithm, stopping after 10 iterations without improvement). Sensitivity was the first metric of the metric set and therefore the criterion optimised by Bayesian optimisation; for both approaches, the final configuration within each algorithm was selected by sensitivity (`select_best`), given the relevance of sensitivity in medical and public-health contexts, where failing to detect a positive site is costlier than a false alarm. Models were compared with TSS, AUC and partial ROC (partial AUC ratio). The 2025 data played no role in tuning. Both tuning approaches were run with each of the four exclusion buffers (0.5, 1, 1.5 and 2 km), as a sensitivity analysis to the buffer distance, for all combinations of cross-validation scheme, environmental filter and circular predictors.
+Twelve algorithms were fitted: MaxNet, logistic regression, elastic-net logistic regression, GAM (`mgcv`, `s(x, k = 3)`), MARS, naive Bayes, k-nearest neighbours, decision tree, random forest, LightGBM, XGBoost, and a single-layer neural network. Hyperparameters were tuned with the same recipes by grid search (`tune_grid`) and by Bayesian optimisation (`tune_bayes`; 15 initial points and 25 iterations for every algorithm, stopping after 10 iterations without improvement). Sensitivity was the first metric of the metric set and therefore the criterion optimised by Bayesian optimisation; for both approaches, the final configuration within each algorithm was selected by sensitivity (`select_best`), given the relevance of sensitivity in medical and public-health contexts, where failing to detect a positive site is costlier than a false alarm. Models were compared with TSS, AUC and partial ROC (partial AUC ratio). The 2025 data played no role in tuning. Both tuning approaches were run with each of the four exclusion buffers (0.5, 1, 1.5 and 2 km), as a sensitivity analysis to the buffer distance, for all combinations of cross-validation scheme, environmental filter and circular predictors.
 
 ### 2.6.1 Hyperparameters and search ranges
 
@@ -176,18 +176,20 @@ Twelve algorithms were fitted: MaxNet, logistic regression, elastic-net logistic
 |:--|:--|:--|:--|
 | MaxNet | Classical | `tidysdm::maxent` (`maxnet`) | feature classes: l, lq, lqp, lqph, lqpht; regularization multiplier: 0.5–4 |
 | Logistic regression | Classical | `logistic_reg` (`glm`) | none (not tuned; fitted on the resamples) |
-| Generalized additive model (GAM) | Classical | `gen_additive_mod` (`mgcv`) | degrees-of-freedom adjustment: `dials` default range; fixed: `s(x, k = 3)`, no feature selection |
+| Generalized additive model (GAM) | Classical | `gen_additive_mod` (`mgcv`) | degrees-of-freedom adjustment: 0.25–4 (`dials` default); fixed: `s(x, k = 3)`, no feature selection |
 | Elastic-net logistic regression | Statistical learning | `logistic_reg` (`glmnet`) | penalty: 10^−3^–10^−1^ (log~10~ scale, −3 to −1); mixture: 0.1–0.9 |
-| MARS | Statistical learning | `mars` (`earth`) | number of terms: 3–12; product degree: 1–2; pruning method: backward, forward |
+| MARS | Machine learning | `mars` (`earth`) | number of terms: 3–12; product degree: 1–2; pruning method: backward, forward |
 | Naive Bayes | Machine learning | `naive_Bayes` (`naivebayes`) | smoothness: 0.5–2 |
-| k-nearest neighbours | Machine learning | `nearest_neighbor` (`kknn`) | neighbours: `dials` default range; weight function: biweight, rectangular; distance power: `dials` default range |
-| Decision tree | Machine learning | `decision_tree` (`rpart`) | minimum node size: 2–15; cost complexity and tree depth: `dials` default ranges |
+| k-nearest neighbours | Machine learning | `nearest_neighbor` (`kknn`) | neighbours: 1–10 (`dials` default); weight function: biweight, rectangular; distance power: 1–2 (`dials` default) |
+| Decision tree | Machine learning | `decision_tree` (`rpart`) | minimum node size: 2–15; cost complexity: 10^−10^–10^−1^ (log~10~ scale, −10 to −1; `dials` default); tree depth: 1–15 (`dials` default) |
 | Random forest | Machine learning | `rand_forest` (`ranger`) | predictors per split (`mtry`): 2–9; trees: 100–1,000; minimum node size: 2–6 |
-| LightGBM | Machine learning | `boost_tree` (`lightgbm`) | `mtry`: 2–9; trees: 100–1,000; tree depth: 3–10; loss reduction and learning rate: `dials` default ranges |
-| XGBoost | Machine learning | `boost_tree` (`xgboost`) | `mtry`: 2–9; trees: 100–1,000; tree depth: 3–10; loss reduction and learning rate: `dials` default ranges |
+| LightGBM | Machine learning | `boost_tree` (`lightgbm`) | `mtry`: 2–9; trees: 100–1,000; tree depth: 3–10; loss reduction: 10^−10^–10^1.5^ (log~10~ scale, −10 to 1.5; `dials` default); learning rate: 10^−10^–10^−1^ (log~10~ scale, −10 to −1; `dials` default) |
+| XGBoost | Machine learning | `boost_tree` (`xgboost`) | `mtry`: 2–9; trees: 100–1,000; tree depth: 3–10; loss reduction: 10^−10^–10^1.5^ (log~10~ scale, −10 to 1.5; `dials` default); learning rate: 10^−10^–10^−1^ (log~10~ scale, −10 to −1; `dials` default) |
 | Neural network (MLP) | Machine learning | `mlp` (`nnet`) | hidden units: 1–8; penalty: 10^−4^–10^0^ (log~10~ scale, −4 to 0); epochs: 50–300 |
 
-*Note.* Bayesian optimisation used 15 initial points and 25 iterations per algorithm, stopping after 10 iterations without improvement. Classes: *Classical* = established statistical or species-distribution models; *Statistical learning* = penalised or adaptive regression models; *Machine learning* = algorithms learned from data with flexible non-parametric structure. Ranges of MARS (number of terms), random forest, LightGBM and XGBoost (`mtry`, tree depth) were widened from 3–7, 2–6 and 3–6, respectively, when the selected value coincided with a limit of the original range. Ranges for the imported-cases model: see Section 2.8.1.
+*Note.* Bayesian optimisation used 15 initial points and 25 iterations per algorithm, stopping after 10 iterations without improvement. Classes: *Classical* = established statistical or species-distribution models; *Statistical learning* = penalised regression models; *Machine learning* = algorithms learned from data with flexible non-parametric structure. Ranges of MARS (number of terms), random forest, LightGBM and XGBoost (`mtry`, tree depth) were widened from 3–7, 2–6 and 3–6, respectively, when the selected value coincided with a limit of the original range. Ranges marked `dials` default are those of `dials` version 1.4.4. Ranges for the imported-cases model: see Section 2.8.1.
+
+**Check of the search ranges.** After tuning, we checked whether the selected hyperparameters fell at a limit of the search range (within 5% of the range from either end). In the primary scenario of the *Ae. aegypti* model, 24 of the 56 numeric hyperparameters selected (43%) were at a limit. Among the three retained algorithms fitted without case weights, random forest had none; LightGBM had one (`loss_reduction`, at the lower limit, which corresponds to no penalty on the splits); and XGBoost had two at the upper limit (`mtry` = 9 and tree depth = 10) and the number of trees close to the lower limit (142, in a range of 100–1,000). The value `mtry` = 9 is the number of predictors and therefore cannot be higher. The tree depth of XGBoost (10) coincides with the upper limit of the range, so values above it were not explored. Limits were more frequent in the models with case weights (14 of the 24), which were not used in the primary analysis.
 
 ## 2.7 Performance evaluation
 
@@ -240,6 +242,8 @@ The imported-cases model uses the same nine predictors (Section 2.2) and the sam
 
 Bayesian optimisation used 15 initial points and 25 iterations, as in the *Ae. aegypti* model. Grid search was not run for the imported-cases model; the comparison between grid search and Bayesian optimisation was carried out only for the *Ae. aegypti* model (Section B.3.1). The search ranges were those of Table S3, except for the following algorithms: MARS (number of terms: 3–12), random forest (minimum node size: 2–20; `mtry`: 2–6), LightGBM (`mtry`: 2–9; tree depth: 1–8) and XGBoost (`mtry`: 2–6; trees: 20–1,000; tree depth: 1–6; learning rate: 10^−3^–10^0^, log~10~ scale). The ranges of the number of terms of MARS and of the learning rate of XGBoost were widened after the selected values coincided with a limit of the original range.
 
+**Check of the search ranges.** As for the *Ae. aegypti* model, we checked whether the selected hyperparameters fell at a limit of the search range (within 5% of the range from either end). In the imported-cases model, 18 of the 56 numeric hyperparameters selected (32%) were at a limit. Among the three retained algorithms fitted without case weights, random forest had one (number of trees, 992 in a range of 100–1,000), LightGBM had one (`mtry` = 9, which is the number of predictors and therefore cannot be higher), and XGBoost had two at the upper limit (`mtry` = 6 and tree depth = 6, in ranges of 2–6 and 1–6), so that higher values were not explored. Nine of the 18 limits corresponded to models with case weights, which were not used in the primary analysis.
+
 ### 2.8.2 Selection of the algorithms and consensus
 
 In the primary scenario, the spatial cross-validated discrimination of the three retained algorithms was high (TSS 0.71–0.73, AUC 0.93–0.94) and no algorithm was clearly superior; LightGBM, XGBoost and random forest were among those with the highest AUC. The epidemiological probability surface was obtained as the mean of the probabilities of the same three algorithms retained for the *Ae. aegypti* model (random forest, LightGBM and XGBoost). Because no algorithm was clearly superior for imported cases (the multicriteria summaries, TOPSIS and Taylor diagrams, are presented in Part C), the consensus avoids relying on a single algorithm. For the consensus, the classification threshold was the mean of the three cross-validated Youden thresholds.
@@ -276,6 +280,18 @@ Models were fitted with `tidymodels` 1.4.1 (`tune` 2.0.1, `parsnip` 1.4.1, `reci
 ### 2.10.3 Repository
 
 The *Ae. aegypti* ovitrap database for the ZMCM (2017–2024, with its training and test partitions, and the 2025 external validation data), the study-area polygon, the three consensus rasters (probability of *Ae. aegypti* presence, probability of confirmed imported dengue cases and epidemiological risk) and the code of the machine-learning workflow (Quarto vignettes) are available in the R package `dengueriskcdmx` (Zenodo, <https://github.com/fdzul/dengueriskcdmx>, <https://fdzul.github.io/dengueriskcdmx/>). The data on confirmed dengue cases are not distributed. An interactive dashboard (<https://eclectic-alfajores-088839.netlify.app/#escenarios-epidemiológicos>) displays the probability maps and the dengue risk map.
+
+The same data sets and rasters are available in a Python version of the package, `dengueriskcdmx` (<https://github.com/fdzul/dengueriskcdmx-py>), exported from the R package. It provides the ovitrap data as GeoDataFrames (`load_ae_aegypti()` for the full 2017–2024 database with its `split` column, the training and test partitions and the 2025 external validation data; `load_aoi()` for the study area) and opens the three rasters with `rasterio` (`read_raster()` for the layers `"aedes"`, `"dengue"` and `"risk"`). It depends on `geopandas` and `rasterio`, and the case data are not distributed either. Example:
+
+```python
+import dengueriskcdmx as dr
+
+train = dr.load_ae_aegypti("train")          # training partition (80%)
+print(train["class"].value_counts())          # presences and pseudo-absences
+
+with dr.read_raster("risk") as r:             # bands: cluster, risk
+    risk = r.read(2)
+```
 
 # Part B. Results of the *Ae. aegypti* model (preliminary: four buffers; Bayesian optimisation and grid search)
 
@@ -751,6 +767,8 @@ knitr::kable(dplyr::transmute(tp_c_f$tabla, Algorithm = algoritmo, `External TSS
              caption = "Table S13. As the previous table, with the external pseudo-absences restricted to those at least 2 km from any 2023–2024 presence.")
 ```
 
+*Note.* In Tables S12 and S13 the criteria of each algorithm are the median of its two models in the scenario of no environmental filter, no circular predictors and 2 km buffer (spatial-block cross-validation): the model fitted without case weights and the model fitted with case weights. With two values the median is their mean. In Table S11 the external TSS is the value of the primary scenario only, that is, of the model without case weights, with the Youden threshold of that scenario. For this reason the filtered external TSS of Table S13 can differ from the corresponding column of Table S11 for the same algorithm.
+
 ### C.2.2 Taylor diagrams
 
 Against the observed 2025 class with all the pseudo-absences, no algorithm approached the reference (correlations of 0.1–0.3), consistent with an external AUC of 0.74–0.75 (Figure S20). Against the consensus of the retained models (Figures S22 and S23) and against the observed class with the filtered pseudo-absences (Figure S21), XGBoost and LightGBM lie together among the algorithms closest to the reference (correlation of about 0.85–0.95); random forest has a standard deviation smaller than that of the reference and lies farther away, and MARS, naive Bayes and the decision tree are among the most distant. The consensus reference measures cell-by-cell agreement among the prediction maps, not accuracy, and favours tree-based models because it is built from them.
@@ -977,7 +995,7 @@ mapa_riesgo
 
 ## D.3 Code to reproduce Figure 5 of the main text
 
-The following code produces the four panels of Figure 5 of the main text (A: probability of dengue transmission; B: probability of *Ae. aegypti* presence; C: bivariate map; D: risk map). The probability and risk rasters are available in the R package `dengueriskcdmx` (Section 2.10.3). The code is shown but not run when this document is rendered; the panels are saved as JPEG files in the folder `Maps/`.
+The following code produces the four panels of Figure 5 of the main text (A: probability of dengue transmission; B: probability of *Ae. aegypti* presence; C: bivariate map; D: risk map). The probability and risk rasters are available in the R package `dengueriskcdmx` and in its Python version (Section 2.10.3). The code is shown but not run when this document is rendered; the panels are saved as JPEG files in the folder `Maps/`.
 
 ```{r}
 #| label: codigo-figura5
