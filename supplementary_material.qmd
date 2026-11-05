@@ -214,7 +214,7 @@ The metrics used to evaluate the models, with their formulas, range, assumptions
 
 ### 2.7.1 Selection of the primary analysis and models
 
-Because the analysis crosses many analytical decisions, we defined the primary analysis by methodological criteria rather than by the highest external metric. The primary scenario was Bayesian optimisation without the environmental filter and without circular predictors, with a 2 km pseudo-absence buffer. We did not use the environmental filter as primary because it restricts pseudo-absences to climatically unsuitable areas by construction, which makes the classes easy to separate (cross-validated TSS 0.92–0.97 with the filter versus about 0.58 without it), leaves only 12–18 pseudo-absences in the 2025 set, and inflates TSS without improving the ranking of cells (partial-ROC ratio about 1.4 with the filter versus 1.8 without it). We excluded the circular predictors (temperature and elevation) because they are also the variables that define the filter and are closely tied to where presences occur, and because they changed the classification threshold and TSS but hardly the AUC or the partial-ROC ratio. We used the 2 km buffer because it applies the largest exclusion distance around presences, which lowers the risk that pseudo-absences fall on unrecorded suitable sites, and because performance did not differ consistently among buffers; external TSS and AUC were slightly higher at 2 km, but this was not the basis of the choice. The other buffers, the scenarios with the filter and with circular predictors, and grid search (B.3.1) are reported as sensitivity analyses.
+Because the analysis crosses many analytical decisions, we defined the primary analysis by methodological criteria rather than by the highest external metric. The primary scenario was Bayesian optimisation without the environmental filter and without circular predictors, with a 2 km pseudo-absence buffer. We did not use the environmental filter as primary because it restricts pseudo-absences to climatically unsuitable areas by construction, which makes the classes easy to separate (cross-validated TSS 0.92–0.97 with the filter versus about 0.58 without it), leaves only 12–18 pseudo-absences in the 2025 set, and inflates TSS without improving the ranking of cells (partial-ROC ratio about 1.4 with the filter versus 1.8 without it). We excluded the circular predictors (temperature and elevation) because they are also the variables that define the filter and are closely tied to where presences occur, and because they changed the classification threshold and TSS but hardly the AUC or the partial-ROC ratio. We used the 2 km buffer because it applies the largest exclusion distance around presences, which lowers the risk that pseudo-absences fall on unrecorded suitable sites, and because performance did not differ consistently among buffers; external TSS and AUC were slightly higher at 2 km, but this was not the basis of the choice. The other buffers, the scenarios with the filter and with circular predictors, and grid search are reported as sensitivity analyses. We chose Bayesian optimisation as the primary tuning approach because it was defined beforehand and requires far fewer model fits than grid search, and because the choice of approach did not change the results: for the *Ae. aegypti* model, the models obtained with Bayesian optimisation and with grid search were similar in all 32 configurations (median paired difference of 0.000 in external TSS, external AUC and cross-validated TSS and AUC; B.3.1), and the effects of the analytical decisions and the performance of the three retained algorithms were the same under both.
 
 Within this scenario we retained the three algorithms that performed best and most consistently: random forest, LightGBM and XGBoost. The criteria were high external discrimination (AUC and TSS), a cross-validated TSS close to the external TSS (no sign of overestimation by cross-validation), a partial-ROC ratio above 1 in every estimable combination with the highest ratios among the algorithms, and a result that could be estimated in every scenario. Given that the external set has 14 presences, we do not rank the three algorithms against each other; they are treated as comparable candidates and, if used jointly, as members of an ensemble.
 
@@ -238,7 +238,7 @@ The imported-cases model uses the same nine predictors (Section 2.2) and the sam
 
 ### 2.8.1 Hyperparameter search ranges
 
-Bayesian optimisation used 15 initial points and 25 iterations, as in the *Ae. aegypti* model. The search ranges were those of Table S3, except for the following algorithms: MARS (number of terms: 3–12), random forest (minimum node size: 2–20; `mtry`: 2–6), LightGBM (`mtry`: 2–9; tree depth: 1–8) and XGBoost (`mtry`: 2–6; trees: 20–1,000; tree depth: 1–6; learning rate: 10^−3^–10^0^, log~10~ scale). The ranges of the number of terms of MARS and of the learning rate of XGBoost were widened after the selected values coincided with a limit of the original range.
+Bayesian optimisation used 15 initial points and 25 iterations, as in the *Ae. aegypti* model. Grid search was not run for the imported-cases model; the comparison between grid search and Bayesian optimisation was carried out only for the *Ae. aegypti* model (Section B.3.1). The search ranges were those of Table S3, except for the following algorithms: MARS (number of terms: 3–12), random forest (minimum node size: 2–20; `mtry`: 2–6), LightGBM (`mtry`: 2–9; tree depth: 1–8) and XGBoost (`mtry`: 2–6; trees: 20–1,000; tree depth: 1–6; learning rate: 10^−3^–10^0^, log~10~ scale). The ranges of the number of terms of MARS and of the learning rate of XGBoost were widened after the selected values coincided with a limit of the original range.
 
 ### 2.8.2 Selection of the algorithms and consensus
 
@@ -974,3 +974,130 @@ mapa_riesgo
 | **Very High + High** | **98,383** | **61.6** |
 
 *Note.* Blocks were assigned to the level of the risk-map cell containing their centroid. Percentages may sum to 100.1 because of rounding.
+
+## D.3 Code to reproduce Figure 5 of the main text
+
+The following code produces the four panels of Figure 5 of the main text (A: probability of dengue transmission; B: probability of *Ae. aegypti* presence; C: bivariate map; D: risk map). The probability and risk rasters are available in the R package `dengueriskcdmx` (Section 2.10.3). The code is shown but not run when this document is rendered; the panels are saved as JPEG files in the folder `Maps/`.
+
+```{r}
+#| label: codigo-figura5
+#| echo: true
+#| eval: false
+library(sf)
+library(terra)
+library(tidyterra)
+library(ggmapinset)
+
+# Step 0. load the raster layers and the boundaries of Mexico City ####
+dengue <- dengueriskcdmx::ae_raster(layer = "dengue")
+aedes  <- dengueriskcdmx::ae_raster(layer = "aedes")
+risk   <- dengueriskcdmx::ae_raster(layer = "risk") |>
+  dplyr::select(risk)
+cdmx <- rgeomex::extract_locality(cve_edo = "09", locality = "mexico")
+
+dir.create("Maps", showWarnings = FALSE)
+
+# helper: probability map (panels A and B) ####
+mapa_probabilidad <- function(r, escala_ubicacion) {
+  ggplot2::ggplot() +
+    tidyterra::geom_spatraster(data = r) +
+    tidyterra::scale_fill_whitebox_c(name = "Probability",
+                                     palette = "muted",
+                                     n.breaks = 12,
+                                     guide = ggplot2::guide_legend(reverse = TRUE)) +
+    ggplot2::geom_sf(data = cdmx, fill = NA, color = "white", lwd = 0.08) +
+    cowplot::theme_map() +
+    ggplot2::theme(strip.text = ggplot2::element_text(size = 8),
+                   legend.title = ggplot2::element_text(size = 8),
+                   legend.text = ggplot2::element_text(size = 8),
+                   legend.margin = ggplot2::margin(0, 0, 0, 0),
+                   legend.box.margin = ggplot2::margin(0, 0, 0, 0)) +
+    ggspatial::annotation_scale(style = "ticks", location = escala_ubicacion, width_hint = 0.15) +
+    ggspatial::annotation_north_arrow(location = "tr",
+                                      height = ggplot2::unit(0.7, "cm"),
+                                      width = ggplot2::unit(0.7, "cm"))
+}
+
+# helper: add the panel letter and save ####
+guardar_panel <- function(g, letra, archivo) {
+  panel <- cowplot::ggdraw() +
+    cowplot::draw_plot(g, 0, 0, scale = 1) +
+    cowplot::draw_label(letra, x = 0.2, y = 0.95, hjust = 0.5, vjust = 0.5)
+  ggplot2::ggsave(filename = archivo, plot = panel, dpi = 400)
+}
+
+# Panels A and B: probability of dengue transmission and of Ae. aegypti presence ####
+hs_dengue <- mapa_probabilidad(dengue, "bl")
+hs_aedes  <- mapa_probabilidad(aedes,  "br")
+guardar_panel(hs_dengue, "A", "Maps/Figura5a.jpg")
+guardar_panel(hs_aedes,  "B", "Maps/Figura5b.jpg")
+
+# Panel C: bivariate map ####
+# classes: quintiles of each probability (5 x 5)
+data <- c(dengue, aedes) |>
+  as.data.frame(xy = TRUE)
+data <- biscale::bi_class(.data = data, x = dengue, y = aedes,
+                          dim = 5, style = "quantile", keep_factors = TRUE) |>
+  dplyr::select(x, y, dengue, aedes, bi_class) |>
+  sf::st_as_sf(coords = c("x", "y"), crs = 4326) |>
+  terra::vect()
+data2 <- terra::rasterize(x = data, y = risk, c("bi_class")) |>
+  terra::as.polygons() |>
+  sf::st_as_sf()
+
+pal3 <- c("1-1" = "#4575B4", "2-1" = "#5687BE", "3-1" = "#659AC7", "4-1" = "#74ADD1", "5-1" = "#87BBD9",
+          "1-2" = "#99CAE1", "2-2" = "#ABD9E9", "3-2" = "#BDE2EE", "4-2" = "#CFEAF3", "5-2" = "#E0F3F8",
+          "1-3" = "#ECF7E5", "2-3" = "#F6FBD2", "3-3" = "#FFFFBF", "4-3" = "#FFF5AF", "5-3" = "#FFEAA0",
+          "1-4" = "#FEE090", "2-4" = "#FFCF80", "3-4" = "#FEBF70", "4-4" = "#FDAE61", "5-4" = "#FB9957",
+          "1-5" = "#F8844D", "2-5" = "#F46D43", "3-5" = "#EB5B39", "4-5" = "#E14730", "5-5" = "#D73027")
+
+map <- ggplot2::ggplot(data = data2) +
+  ggplot2::geom_sf(mapping = ggplot2::aes(fill = bi_class),
+                   color = "white", alpha = 1, size = 0.1, show.legend = FALSE) +
+  ggplot2::geom_sf(data = cdmx, fill = NA, alpha = 0, color = "black", lwd = 0.08) +
+  biscale::bi_scale_fill(pal = pal3, dim = 5) +
+  biscale::bi_theme() +
+  ggspatial::annotation_scale(style = "ticks", location = "br", width_hint = 0.15) +
+  ggspatial::annotation_north_arrow(location = "tr",
+                                    height = ggplot2::unit(0.7, "cm"),
+                                    width = ggplot2::unit(0.7, "cm"))
+bivariate_legend <- biscale::bi_legend(pal = pal3, dim = 5, pad_width = 1, pad_color = "white",
+                                       xlab = "epidemiological risk",   # x axis: dengue
+                                       ylab = "entomological risk",     # y axis: Ae. aegypti
+                                       size = 8)
+bivariate_maps <- cowplot::ggdraw() +
+  cowplot::draw_plot(map, -0.1, 0, scale = 1) +
+  cowplot::draw_plot(bivariate_legend, 0.30, 0.3, scale = 0.35)
+guardar_panel(bivariate_maps, "C", "Maps/Figura5c.jpg")
+
+# Panel D: risk map ####
+data <- risk |>
+  as.data.frame(xy = TRUE) |>
+  dplyr::mutate(risk = dplyr::case_when(risk == 1 ~ "Very High",
+                                        risk == 2 ~ "High",
+                                        risk == 3 ~ "Mid",
+                                        risk == 4 ~ "Low",
+                                        risk == 5 ~ "Very Low")) |>
+  sf::st_as_sf(coords = c("x", "y"), crs = 4326) |>
+  terra::vect()
+data <- terra::rasterize(x = data, y = risk, c("risk")) |>
+  terra::as.polygons() |>
+  sf::st_as_sf() |>
+  dplyr::mutate(risk = factor(risk,
+                              levels = c("Very High", "High", "Mid", "Low", "Very Low"),
+                              ordered = TRUE))
+pal_riesgo <- rev(c("#63C1A0", "#9CBB70", "#D5B540", "#E98C38", "#E01A59"))
+
+risk_map <- ggplot2::ggplot() +
+  ggplot2::theme_void() +
+  ggmapinset::geom_sf_inset(data = data, lwd = 0.001, ggplot2::aes(fill = risk)) +
+  ggplot2::geom_sf(data = cdmx, fill = NA, color = "white", lwd = 0.08) +
+  ggplot2::scale_fill_manual("", values = pal_riesgo) +
+  ggplot2::theme(legend.position = c(0.5, 0.075),
+                 plot.margin = ggplot2::unit(c(0, 0, 0, 0), "cm")) +
+  ggplot2::guides(fill = ggplot2::guide_legend(nrow = 1)) +
+  ggspatial::annotation_north_arrow(location = "tr",
+                                    height = ggplot2::unit(0.7, "cm"),
+                                    width = ggplot2::unit(0.7, "cm"))
+guardar_panel(risk_map, "D", "Maps/Figura5d.jpg")
+```
