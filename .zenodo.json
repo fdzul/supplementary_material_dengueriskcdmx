@@ -6,18 +6,68 @@
   "creators": [
     {
       "name": "Dzul Manzanilla, Felipe Antonio",
-      "affiliation": "Instituto Nacional de Salud Pública, Mexico",
+      "affiliation": "Centro de Investigación en Sistemas de Salud, Instituto Nacional de Salud Pública, Cuernavaca, Morelos, México",
       "orcid": "0000-0002-2085-9141"
     }
   ],
   "license": "cc-by-4.0",
-  "keywords": ["dengue", "Aedes aegypti", "risk map", "species distribution modelling", "machine learning", "Mexico City"],
+  "keywords": [
+    "dengue",
+    "Aedes aegypti",
+    "risk map",
+    "species distribution modelling",
+    "machine learning",
+    "Mexico City"
+  ],
   "language": "eng",
   "related_identifiers": [
     {
       "identifier": "https://github.com/fdzul/dengueriskcdmx",
       "relation": "isSupplementTo",
       "scheme": "url"
+    }
+  ],
+  "contributors": [
+    {
+      "name": "Correa-Morales, Fabián",
+      "type": "Other",
+      "orcid": "0000-0002-6193-1242",
+      "affiliation": "Centro Nacional de Programas Preventivos y Control de Enfermedades, Ciudad de México, México"
+    },
+    {
+      "name": "Huerta, Heron",
+      "type": "Other",
+      "affiliation": "Instituto de Diagnóstico y Referencia Epidemiológicos Dr. Manuel Martínez Báez, Ciudad de México, México"
+    },
+    {
+      "name": "Mejía-Guevara, Dolores",
+      "type": "Other",
+      "affiliation": "Servicios de Salud Pública de la Ciudad de México, Ciudad de México, México"
+    },
+    {
+      "name": "Alarid Villa, Brenda",
+      "type": "Other",
+      "affiliation": "Servicios de Salud Pública de la Ciudad de México, Ciudad de México, México"
+    },
+    {
+      "name": "Corona-Pedraza, Rubén",
+      "type": "Other",
+      "affiliation": "Servicios de Salud Pública de la Ciudad de México, Ciudad de México, México"
+    },
+    {
+      "name": "Valdez Vázquez, Ricardo Rafael",
+      "type": "Other",
+      "affiliation": "Centro Nacional de Programas Preventivos y Control de Enfermedades, Ciudad de México, México"
+    },
+    {
+      "name": "Gómez-Dantés, Héctor",
+      "type": "Other",
+      "affiliation": "Centro de Investigación en Sistemas de Salud, Instituto Nacional de Salud Pública, Cuernavaca, Morelos, México"
+    },
+    {
+      "name": "Pando-Robles, Victoria",
+      "type": "Other",
+      "affiliation": "Centro de Investigación sobre Enfermedades Infecciosas, Instituto Nacional de Salud Pública, Cuernavaca, Morelos, México"
     }
   ]
 }
